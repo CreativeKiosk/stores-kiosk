@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
   <head>
@@ -24,7 +23,7 @@
   <body>
     <div id="root"></div>
 
-    <!-- React + ReactDOM + Babel (for JSX in browser) -->
+    <!-- React + ReactDOM + Babel -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -32,38 +31,19 @@
     <script type="text/babel">
       const { useState, useEffect } = React;
 
+      // 👉 YOUR EMPLOYEES & PINS
       const EMPLOYEES = [
-  {
-    "id": 1,
-    "name": "Sheldon",
-    "pin": "101"
-  },
-  {
-    "id": 2,
-    "name": "Haydon",
-    "pin": "202"
-  },
-  {
-    "id": 3,
-    "name": "Mark",
-    "pin": "303"
-  },
-  {
-    "id": 4,
-    "name": "Bailey",
-    "pin": "404"
-  },
-  {
-    "id": 5,
-    "name": "Ed",
-    "pin": "505"
-  },
-  {
-    "id": 6,
-    "name": "Brendan",
-    "pin": "606"
-  }
-];
+        { id: 1, name: "Sheldon", pin: "101" },
+        { id: 2, name: "Haydon", pin: "202" },
+        { id: 3, name: "Mark", pin: "303" },
+        { id: 4, name: "Bailey", pin: "404" },
+        { id: 5, name: "Ed", pin: "505" },
+        { id: 6, name: "Brendan", pin: "606" },
+      ];
+
+      // 👉 YOUR GOOGLE SCRIPT API URLs
+      const STOCK_API_URL = "https://script.google.com/macros/s/AKfycbwXRKVuuQ4zr6JtuoYyAzCmonbDD1B-5niRk1JTRRXnMzwAve8AjDhRunPt3q_MW1u8/exec";
+      const PUNCH_API_URL = "https://script.google.com/macros/s/AKfycbxaVGcs-FLkSC9a1ecOsNQ3ZCfpXrvyxDd5dfEaaU0bDTnnqqA0UAw22Dh_INOogbzmSw/exec";
 
       const VIEWS = {
         EMP_LIST: "EMP_LIST",
@@ -89,7 +69,9 @@
         const [qty, setQty] = useState("");
         const [tool, setTool] = useState("");
         const [lastActivity, setLastActivity] = useState(Date.now());
+        const [busy, setBusy] = useState(false);
 
+        // Auto logout on inactivity
         useEffect(() => {
           const t = setInterval(() => {
             if (selected && Date.now() - lastActivity > INACTIVITY_TIMEOUT_MS) {
@@ -137,6 +119,53 @@
           setView(VIEWS.EMP_LIST);
         };
 
+        // --- Helpers to talk to Google Sheets ---
+
+        async function postToStockApi(payload) {
+          setBusy(true);
+          try {
+            const res = await fetch(STOCK_API_URL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            if (!res.ok) throw new Error("Network error");
+            const text = await res.text();
+            if (!text.includes("OK")) {
+              // our script returns "OK" text
+              console.warn("Unexpected response:", text);
+            }
+          } catch (err) {
+            console.error(err);
+            alert("Error saving to Stock/Tool sheet. Check internet or script permissions.");
+            throw err;
+          } finally {
+            setBusy(false);
+          }
+        }
+
+        async function postToPunchApi(payload) {
+          setBusy(true);
+          try {
+            const res = await fetch(PUNCH_API_URL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            if (!res.ok) throw new Error("Network error");
+            const text = await res.text();
+            if (!text.includes("OK")) {
+              console.warn("Unexpected response:", text);
+            }
+          } catch (err) {
+            console.error(err);
+            alert("Error saving to PunchLog sheet. Check internet or script permissions.");
+            throw err;
+          } finally {
+            setBusy(false);
+          }
+        }
+
         const done = (msg) => {
           markActivity();
           setMessage(msg);
@@ -146,30 +175,69 @@
           setView(VIEWS.DONE);
         };
 
-        const submitTake = () => {
+        // --- Actions wired to Google Sheets ---
+
+        const submitTake = async () => {
           if (!item || !qty) return alert("Enter item and quantity");
-          done(`${selected.name} took ${qty} of "${item}"`);
+          try {
+            await postToStockApi({
+              action: "take_stock",
+              employee: selected.name,
+              item,
+              qty: Number(qty),
+            });
+            done(`${selected.name} took ${qty} of "${item}"`);
+          } catch (_) {}
         };
 
-        const submitReturn = () => {
+        const submitReturn = async () => {
           if (!item || !qty) return alert("Enter item and quantity");
-          done(`${selected.name} returned ${qty} of "${item}"`);
+          try {
+            await postToStockApi({
+              action: "return_stock",
+              employee: selected.name,
+              item,
+              qty: Number(qty),
+            });
+            done(`${selected.name} returned ${qty} of "${item}"`);
+          } catch (_) {}
         };
 
-        const submitToolOut = () => {
+        const submitToolOut = async () => {
           if (!tool) return alert("Enter tool name");
-          done(`${selected.name} signed OUT tool "${tool}"`);
+          try {
+            await postToStockApi({
+              action: "tool_out",
+              employee: selected.name,
+              tool,
+            });
+            done(`${selected.name} signed OUT tool "${tool}"`);
+          } catch (_) {}
         };
 
-        const submitToolIn = () => {
+        const submitToolIn = async () => {
           if (!tool) return alert("Enter tool name");
-          done(`${selected.name} signed IN tool "${tool}"`);
+          try {
+            await postToStockApi({
+              action: "tool_in",
+              employee: selected.name,
+              tool,
+            });
+            done(`${selected.name} signed IN tool "${tool}"`);
+          } catch (_) {}
         };
 
-        const submitPunch = () => {
-          const t = new Date().toLocaleTimeString();
-          done(`${selected.name} punched in at ${t}`);
+        const submitPunch = async () => {
+          try {
+            await postToPunchApi({
+              employee: selected.name,
+            });
+            const t = new Date().toLocaleTimeString();
+            done(`${selected.name} punched in at ${t}`);
+          } catch (_) {}
         };
+
+        // --- Layout & Views ---
 
         const Layout = ({ children }) => (
           <div
@@ -242,6 +310,19 @@
                   >
                     Log out
                   </button>
+                </div>
+              )}
+
+              {busy && (
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "#facc15",
+                    marginBottom: 6,
+                    textAlign: "center",
+                  }}
+                >
+                  Saving to Google Sheets…
                 </div>
               )}
 
@@ -733,3 +814,4 @@
     </script>
   </body>
 </html>
+
