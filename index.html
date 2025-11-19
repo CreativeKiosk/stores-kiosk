@@ -1,0 +1,735 @@
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Stores Kiosk</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: radial-gradient(circle at top, #1f2937, #020617);
+        color: #e5e7eb;
+      }
+      .shadow-card {
+        box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+      }
+      button {
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <!-- React + ReactDOM + Babel (for JSX in browser) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel">
+      const { useState, useEffect } = React;
+
+      const EMPLOYEES = [
+  {
+    "id": 1,
+    "name": "Sheldon",
+    "pin": "101"
+  },
+  {
+    "id": 2,
+    "name": "Haydon",
+    "pin": "202"
+  },
+  {
+    "id": 3,
+    "name": "Mark",
+    "pin": "303"
+  },
+  {
+    "id": 4,
+    "name": "Bailey",
+    "pin": "404"
+  },
+  {
+    "id": 5,
+    "name": "Ed",
+    "pin": "505"
+  },
+  {
+    "id": 6,
+    "name": "Brendan",
+    "pin": "606"
+  }
+];
+
+      const VIEWS = {
+        EMP_LIST: "EMP_LIST",
+        PIN: "PIN",
+        MENU: "MENU",
+        TAKE: "TAKE",
+        RETURN: "RETURN",
+        TOOL_OUT: "TOOL_OUT",
+        TOOL_IN: "TOOL_IN",
+        PUNCH: "PUNCH",
+        DONE: "DONE",
+      };
+
+      const INACTIVITY_TIMEOUT_MS = 2 * 60 * 1000;
+
+      function App() {
+        const [view, setView] = useState(VIEWS.EMP_LIST);
+        const [employees] = useState(EMPLOYEES);
+        const [selected, setSelected] = useState(null);
+        const [pin, setPin] = useState("");
+        const [message, setMessage] = useState("");
+        const [item, setItem] = useState("");
+        const [qty, setQty] = useState("");
+        const [tool, setTool] = useState("");
+        const [lastActivity, setLastActivity] = useState(Date.now());
+
+        useEffect(() => {
+          const t = setInterval(() => {
+            if (selected && Date.now() - lastActivity > INACTIVITY_TIMEOUT_MS) {
+              handleLogout();
+            }
+          }, 5000);
+          return () => clearInterval(t);
+        }, [selected, lastActivity]);
+
+        const markActivity = () => setLastActivity(Date.now());
+
+        const handleSelectEmployee = (emp) => {
+          markActivity();
+          setSelected(emp);
+          setPin("");
+          setView(VIEWS.PIN);
+          setMessage("");
+        };
+
+        const handlePinKey = (k) => {
+          markActivity();
+          if (k === "DEL") setPin((p) => p.slice(0, -1));
+          else if (k === "CLR") setPin("");
+          else if (pin.length < 3) setPin((p) => p + k);
+        };
+
+        const handlePinSubmit = () => {
+          markActivity();
+          if (!selected) return;
+          if (pin === selected.pin) {
+            setView(VIEWS.MENU);
+          } else {
+            alert("Incorrect PIN, try again.");
+            setPin("");
+          }
+        };
+
+        const handleLogout = () => {
+          setSelected(null);
+          setPin("");
+          setMessage("");
+          setItem("");
+          setQty("");
+          setTool("");
+          setView(VIEWS.EMP_LIST);
+        };
+
+        const done = (msg) => {
+          markActivity();
+          setMessage(msg);
+          setItem("");
+          setQty("");
+          setTool("");
+          setView(VIEWS.DONE);
+        };
+
+        const submitTake = () => {
+          if (!item || !qty) return alert("Enter item and quantity");
+          done(`${selected.name} took ${qty} of "${item}"`);
+        };
+
+        const submitReturn = () => {
+          if (!item || !qty) return alert("Enter item and quantity");
+          done(`${selected.name} returned ${qty} of "${item}"`);
+        };
+
+        const submitToolOut = () => {
+          if (!tool) return alert("Enter tool name");
+          done(`${selected.name} signed OUT tool "${tool}"`);
+        };
+
+        const submitToolIn = () => {
+          if (!tool) return alert("Enter tool name");
+          done(`${selected.name} signed IN tool "${tool}"`);
+        };
+
+        const submitPunch = () => {
+          const t = new Date().toLocaleTimeString();
+          done(`${selected.name} punched in at ${t}`);
+        };
+
+        const Layout = ({ children }) => (
+          <div
+            style={{
+              minHeight: "100vh",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 16,
+            }}
+            onClick={markActivity}
+            onTouchStart={markActivity}
+          >
+            <div
+              className="shadow-card"
+              style={{
+                width: "100%",
+                maxWidth: 480,
+                background:
+                  "linear-gradient(145deg, rgba(15,23,42,0.95), rgba(15,23,42,0.9))",
+                borderRadius: 24,
+                padding: 20,
+                border: "1px solid rgba(148,163,184,0.3)",
+              }}
+            >
+              <div style={{ textAlign: "center", marginBottom: 12 }}>
+                <div
+                  style={{
+                    fontSize: 24,
+                    fontWeight: 700,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: "#e5e7eb",
+                  }}
+                >
+                  Stores Kiosk
+                </div>
+                <div
+                  style={{
+                    fontSize: 13,
+                    color: "#9ca3af",
+                    marginTop: 4,
+                  }}
+                >
+                  Tap your name, enter PIN, then choose an action
+                </div>
+              </div>
+
+              {selected && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    fontSize: 12,
+                    color: "#9ca3af",
+                    marginBottom: 8,
+                  }}
+                >
+                  <span>Logged in as: {selected.name}</span>
+                  <button
+                    onClick={handleLogout}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#fca5a5",
+                      textDecoration: "underline",
+                      padding: 0,
+                    }}
+                  >
+                    Log out
+                  </button>
+                </div>
+              )}
+
+              <div>{children}</div>
+            </div>
+          </div>
+        );
+
+        const EmployeeList = () => (
+          <div>
+            <h2
+              style={{
+                fontSize: 20,
+                marginBottom: 8,
+                textAlign: "center",
+                color: "#e5e7eb",
+              }}
+            >
+              Select your name
+            </h2>
+            <p
+              style={{
+                fontSize: 13,
+                textAlign: "center",
+                marginBottom: 10,
+                color: "#9ca3af",
+              }}
+            >
+              Scroll if your name is not visible
+            </p>
+            <div
+              style={{
+                maxHeight: 360,
+                overflowY: "auto",
+                paddingRight: 4,
+              }}
+            >
+              {employees.map((emp) => (
+                <button
+                  key={emp.id}
+                  onClick={() => handleSelectEmployee(emp)}
+                  style={{
+                    width: "100%",
+                    textAlign: "left",
+                    padding: "10px 12px",
+                    marginBottom: 8,
+                    borderRadius: 12,
+                    border: "1px solid rgba(148,163,184,0.4)",
+                    background:
+                      "linear-gradient(135deg, rgba(30,64,175,0.35), rgba(15,23,42,1))",
+                    color: "#e5e7eb",
+                    fontSize: 18,
+                  }}
+                >
+                  {emp.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+
+        const PinPad = () => (
+          <div>
+            <h2
+              style={{
+                fontSize: 20,
+                marginBottom: 8,
+                textAlign: "center",
+              }}
+            >
+              Enter your 3-digit PIN
+            </h2>
+            <p
+              style={{
+                fontSize: 13,
+                textAlign: "center",
+                marginBottom: 8,
+                color: "#9ca3af",
+              }}
+            >
+              PIN is linked to your name so no one else can use it
+            </p>
+            <div
+              style={{
+                fontSize: 32,
+                letterSpacing: "0.35em",
+                textAlign: "center",
+                marginBottom: 12,
+                fontFamily: "monospace",
+              }}
+            >
+              {pin.padEnd(3, "●")}
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, minmax(0,1fr))",
+                gap: 8,
+                marginBottom: 8,
+              }}
+            >
+              {["1","2","3","4","5","6","7","8","9","CLR","0","DEL"].map((k) => (
+                <button
+                  key={k}
+                  onClick={() => handlePinKey(k)}
+                  style={{
+                    padding: "12px 0",
+                    borderRadius: 12,
+                    border: "none",
+                    background: "rgba(51,65,85,0.95)",
+                    color: "#e5e7eb",
+                    fontSize: 20,
+                    fontWeight: 600,
+                  }}
+                >
+                  {k}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={handlePinSubmit}
+              style={{
+                width: "100%",
+                padding: "11px 0",
+                borderRadius: 999,
+                border: "none",
+                background:
+                  "linear-gradient(to right, #22c55e, #16a34a)",
+                color: "white",
+                fontSize: 18,
+                fontWeight: 700,
+                marginBottom: 4,
+              }}
+            >
+              Enter
+            </button>
+            <button
+              onClick={handleLogout}
+              style={{
+                width: "100%",
+                padding: "6px 0",
+                border: "none",
+                background: "none",
+                color: "#9ca3af",
+                textDecoration: "underline",
+                fontSize: 13,
+                marginTop: 4,
+              }}
+            >
+              Change employee
+            </button>
+          </div>
+        );
+
+        const Menu = () => (
+          <div>
+            <h2
+              style={{
+                fontSize: 20,
+                marginBottom: 10,
+                textAlign: "center",
+              }}
+            >
+              What do you want to do?
+            </h2>
+            <div
+              style={{
+                display: "grid",
+                gap: 8,
+              }}
+            >
+              <MenuButton
+                label="Take Stock"
+                colorFrom="#3b82f6"
+                colorTo="#2563eb"
+                onClick={() => setView(VIEWS.TAKE)}
+              />
+              <MenuButton
+                label="Return Stock"
+                colorFrom="#f59e0b"
+                colorTo="#d97706"
+                onClick={() => setView(VIEWS.RETURN)}
+              />
+              <MenuButton
+                label="Tool Sign Out"
+                colorFrom="#6366f1"
+                colorTo="#4f46e5"
+                onClick={() => setView(VIEWS.TOOL_OUT)}
+              />
+              <MenuButton
+                label="Tool Sign In"
+                colorFrom="#8b5cf6"
+                colorTo="#7c3aed"
+                onClick={() => setView(VIEWS.TOOL_IN)}
+              />
+              <MenuButton
+                label="Punch In"
+                colorFrom="#22c55e"
+                colorTo="#16a34a"
+                onClick={() => setView(VIEWS.PUNCH)}
+              />
+            </div>
+          </div>
+        );
+
+        const MenuButton = ({ label, colorFrom, colorTo, onClick }) => (
+          <button
+            onClick={onClick}
+            style={{
+              width: "100%",
+              padding: "14px 0",
+              borderRadius: 14,
+              border: "none",
+              background: `linear-gradient(to right, ${colorFrom}, ${colorTo})`,
+              color: "white",
+              fontSize: 18,
+              fontWeight: 700,
+            }}
+          >
+            {label}
+          </button>
+        );
+
+        const BackButton = () => (
+          <button
+            onClick={() => {
+              setMessage("");
+              setView(VIEWS.MENU);
+            }}
+            style={{
+              marginTop: 10,
+              width: "100%",
+              padding: "8px 0",
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,184,0.4)",
+              background: "none",
+              color: "#e5e7eb",
+              fontSize: 14,
+            }}
+          >
+            Back to menu
+          </button>
+        );
+
+        const inputStyle = {
+          width: "100%",
+          padding: "10px 12px",
+          borderRadius: 10,
+          border: "1px solid rgba(55,65,81,0.9)",
+          marginBottom: 10,
+          backgroundColor: "rgba(15,23,42,0.8)",
+          color: "#e5e7eb",
+          fontSize: 16,
+        };
+
+        const TakeStockView = () => (
+          <div>
+            <h2 style={{ fontSize: 20, marginBottom: 8, textAlign: "center" }}>
+              Take Stock
+            </h2>
+            <input
+              style={inputStyle}
+              placeholder="Item name or code"
+              value={item}
+              onChange={(e) => setItem(e.target.value)}
+            />
+            <input
+              style={inputStyle}
+              placeholder="Quantity"
+              type="number"
+              min="1"
+              value={qty}
+              onChange={(e) => setQty(e.target.value)}
+            />
+            <button
+              onClick={submitTake}
+              style={{
+                width: "100%",
+                padding: "12px 0",
+                borderRadius: 999,
+                border: "none",
+                background:
+                  "linear-gradient(to right, #3b82f6, #2563eb)",
+                color: "white",
+                fontSize: 18,
+                fontWeight: 700,
+              }}
+            >
+              Confirm
+            </button>
+            <BackButton />
+          </div>
+        );
+
+        const ReturnStockView = () => (
+          <div>
+            <h2 style={{ fontSize: 20, marginBottom: 8, textAlign: "center" }}>
+              Return Stock
+            </h2>
+            <input
+              style={inputStyle}
+              placeholder="Item name or code"
+              value={item}
+              onChange={(e) => setItem(e.target.value)}
+            />
+            <input
+              style={inputStyle}
+              placeholder="Quantity"
+              type="number"
+              min="1"
+              value={qty}
+              onChange={(e) => setQty(e.target.value)}
+            />
+            <button
+              onClick={submitReturn}
+              style={{
+                width: "100%",
+                padding: "12px 0",
+                borderRadius: 999,
+                border: "none",
+                background:
+                  "linear-gradient(to right, #f59e0b, #d97706)",
+                color: "white",
+                fontSize: 18,
+                fontWeight: 700,
+              }}
+            >
+              Confirm
+            </button>
+            <BackButton />
+          </div>
+        );
+
+        const ToolOutView = () => (
+          <div>
+            <h2 style={{ fontSize: 20, marginBottom: 8, textAlign: "center" }}>
+              Tool Sign Out
+            </h2>
+            <input
+              style={inputStyle}
+              placeholder="Tool name or ID"
+              value={tool}
+              onChange={(e) => setTool(e.target.value)}
+            />
+            <button
+              onClick={submitToolOut}
+              style={{
+                width: "100%",
+                padding: "12px 0",
+                borderRadius: 999,
+                border: "none",
+                background:
+                  "linear-gradient(to right, #6366f1, #4f46e5)",
+                color: "white",
+                fontSize: 18,
+                fontWeight: 700,
+              }}
+            >
+              Confirm
+            </button>
+            <BackButton />
+          </div>
+        );
+
+        const ToolInView = () => (
+          <div>
+            <h2 style={{ fontSize: 20, marginBottom: 8, textAlign: "center" }}>
+              Tool Sign In
+            </h2>
+            <input
+              style={inputStyle}
+              placeholder="Tool name or ID"
+              value={tool}
+              onChange={(e) => setTool(e.target.value)}
+            />
+            <button
+              onClick={submitToolIn}
+              style={{
+                width: "100%",
+                padding: "12px 0",
+                borderRadius: 999,
+                border: "none",
+                background:
+                  "linear-gradient(to right, #8b5cf6, #7c3aed)",
+                color: "white",
+                fontSize: 18,
+                fontWeight: 700,
+              }}
+            >
+              Confirm
+            </button>
+            <BackButton />
+          </div>
+        );
+
+        const PunchView = () => (
+          <div>
+            <h2 style={{ fontSize: 20, marginBottom: 8, textAlign: "center" }}>
+              Punch In
+            </h2>
+            <p
+              style={{
+                fontSize: 14,
+                textAlign: "center",
+                marginBottom: 12,
+                color: "#9ca3af",
+              }}
+            >
+              This records the time you arrived. No need to punch out.
+            </p>
+            <button
+              onClick={submitPunch}
+              style={{
+                width: "100%",
+                padding: "12px 0",
+                borderRadius: 999,
+                border: "none",
+                background:
+                  "linear-gradient(to right, #22c55e, #16a34a)",
+                color: "white",
+                fontSize: 18,
+                fontWeight: 700,
+              }}
+            >
+              Punch In
+            </button>
+            <BackButton />
+          </div>
+        );
+
+        const DoneView = () => (
+          <div>
+            <h2
+              style={{
+                fontSize: 22,
+                marginBottom: 8,
+                textAlign: "center",
+              }}
+            >
+              Done
+            </h2>
+            <p
+              style={{
+                fontSize: 15,
+                textAlign: "center",
+                marginBottom: 16,
+                color: "#e5e7eb",
+              }}
+            >
+              {message || "Your action has been recorded."}
+            </p>
+            <button
+              onClick={() => {
+                setMessage("");
+                setView(VIEWS.MENU);
+              }}
+              style={{
+                width: "100%",
+                padding: "12px 0",
+                borderRadius: 999,
+                border: "none",
+                background: "rgba(55,65,81,0.9)",
+                color: "white",
+                fontSize: 18,
+                fontWeight: 700,
+              }}
+            >
+              Back to menu
+            </button>
+          </div>
+        );
+
+        let body;
+        if (view === VIEWS.EMP_LIST) body = <EmployeeList />;
+        else if (view === VIEWS.PIN) body = <PinPad />;
+        else if (view === VIEWS.MENU) body = <Menu />;
+        else if (view === VIEWS.TAKE) body = <TakeStockView />;
+        else if (view === VIEWS.RETURN) body = <ReturnStockView />;
+        else if (view === VIEWS.TOOL_OUT) body = <ToolOutView />;
+        else if (view === VIEWS.TOOL_IN) body = <ToolInView />;
+        else if (view === VIEWS.PUNCH) body = <PunchView />;
+        else if (view === VIEWS.DONE) body = <DoneView />;
+
+        return <Layout>{body}</Layout>;
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(<App />);
+    </script>
+  </body>
+</html>
